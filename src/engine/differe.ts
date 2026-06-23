@@ -20,7 +20,10 @@ export interface DeferralInput {
  * rupture. C'est l'un des leviers de la zone de bascule.
  */
 export function computeAreDeferralDays(input: DeferralInput, differe: DiffereBaremes): number {
-  const differeCp = Math.max(0, input.joursCongesPayesNonPris);
+  const differeCp = Math.min(
+    Math.max(0, input.joursCongesPayesNonPris),
+    differe.plafondDiffereCpJours.valeur,
+  );
   const differeSpecifiqueBrut = Math.floor(
     input.indemnitesSupraLegales / differe.coefficientDiffereSpecifique.valeur,
   );

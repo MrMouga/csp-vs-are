@@ -54,10 +54,27 @@ export interface DureeBaremes {
 export interface DiffereBaremes {
   /** Délai d'attente systématique (7 jours). */
   delaiAttenteJours: BaremeValue;
+  /** Plafond du différé congés payés (30 jours). */
+  plafondDiffereCpJours: BaremeValue;
   /** Plafond du différé spécifique en licenciement économique (75 jours). */
   plafondDiffereSpecifiqueJours: BaremeValue;
-  /** Diviseur € → jours pour le différé spécifique (indemnités supra-légales). */
+  /** Diviseur € → jours pour le différé spécifique (indemnités supra-légales / 111,8). */
   coefficientDiffereSpecifique: BaremeValue;
+}
+
+/**
+ * Barèmes d'estimation du NET (décision 9 : on affiche un net estimé à la France
+ * Travail, à côté du brut canonique). Taux à confirmer exactement sur France Travail.
+ */
+export interface NetBaremes {
+  /** Taux CSG appliqué à l'allocation. */
+  tauxCsg: BaremeValue;
+  /** Taux CRDS appliqué à l'allocation. */
+  tauxCrds: BaremeValue;
+  /** Taux de retraite complémentaire prélevé (ARE/ASP). */
+  tauxRetraiteComplementaire: BaremeValue;
+  /** Seuil journalier brut sous lequel l'allocation est exonérée de CSG/CRDS (€/j). */
+  seuilExonerationJournalier: BaremeValue;
 }
 
 /** Jeu de barèmes daté par date de fin de contrat (décision 4A + correction Codex #6). */
@@ -68,6 +85,7 @@ export interface Baremes {
   asp: AspBaremes;
   duree: DureeBaremes;
   differe: DiffereBaremes;
+  net: NetBaremes;
 }
 
 /**

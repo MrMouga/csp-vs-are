@@ -1,21 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import { computeAreDaily } from './are';
-import type { Baremes } from './types';
+import type { AreBaremes } from './types';
 
-// Fixture de barèmes pour les tests. Valeurs proches de 2026 mais INDÉPENDANTES des
-// valeurs exactes encore à figer (partie fixe, plancher) : on teste la LOGIQUE de la
-// formule, pas les constantes officielles. Les vraies valeurs vivront dans
-// baremes-<dateEffet>.json (décision 4A) et seront couvertes par les cas golden.
-const baremes: Baremes = {
-  dateEffet: '2026-01-01',
-  are: {
-    tauxBas: { valeur: 0.404, source: 'test', libelle: 'taux bas 40,4%' },
-    partieFixe: { valeur: 13.11, source: 'test', libelle: 'partie fixe €/j' },
-    tauxHaut: { valeur: 0.57, source: 'test', libelle: 'taux haut 57%' },
-    plafondPartSJR: { valeur: 0.75, source: 'test', libelle: 'plafond 75% du SJR' },
-    plancherJournalier: { valeur: 31.97, source: 'test', libelle: 'plancher €/j' },
-  },
+// Fixture de barèmes ARE pour les tests. Valeurs proches de 2026 mais INDÉPENDANTES
+// des valeurs exactes : on teste la LOGIQUE de la formule, pas les constantes
+// officielles (couvertes par golden.test.ts contre l'exemple Unédic).
+const are: AreBaremes = {
+  tauxBas: { valeur: 0.404, source: 'test', libelle: 'taux bas 40,4%' },
+  partieFixe: { valeur: 13.11, source: 'test', libelle: 'partie fixe €/j' },
+  tauxHaut: { valeur: 0.57, source: 'test', libelle: 'taux haut 57%' },
+  plafondPartSJR: { valeur: 0.75, source: 'test', libelle: 'plafond 75% du SJR' },
+  plancherJournalier: { valeur: 31.97, source: 'test', libelle: 'plancher €/j' },
 };
+const baremes = { are };
 
 describe('computeAreDaily', () => {
   test('retient 57% du SJR quand cette formule est la plus haute (salaire moyen)', () => {

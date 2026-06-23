@@ -4,6 +4,7 @@ import type { DiffereBaremes } from './types';
 
 const differe: DiffereBaremes = {
   delaiAttenteJours: { valeur: 7, source: 'test', libelle: 'délai d\'attente 7 j' },
+  plafondDiffereCpJours: { valeur: 30, source: 'test', libelle: 'plafond différé CP 30 j' },
   plafondDiffereSpecifiqueJours: { valeur: 75, source: 'test', libelle: 'plafond différé spécifique éco' },
   coefficientDiffereSpecifique: { valeur: 100, source: 'test', libelle: 'diviseur € → jours' },
 };
@@ -34,5 +35,12 @@ describe('computeAreDeferralDays (jours avant le 1er versement ARE)', () => {
     expect(
       computeAreDeferralDays({ joursCongesPayesNonPris: 0, indemnitesSupraLegales: 10000 }, differe),
     ).toBe(82);
+  });
+
+  test('plafonne le différé congés payés à 30 jours', () => {
+    // 50 jours de CP demandés → plafonnés à 30 ; + 7 = 37.
+    expect(
+      computeAreDeferralDays({ joursCongesPayesNonPris: 50, indemnitesSupraLegales: 0 }, differe),
+    ).toBe(37);
   });
 });
