@@ -149,9 +149,23 @@ function verdictHtml(months: number): string {
     phrase = `Si tu retrouves un emploi vers <strong>${months.toFixed(1)} mois</strong>, ${gagnant}
       te rapporterait environ <strong>${formatEuro(ecart)} de plus</strong> au total.`;
   }
+  const row = (label: string, csp: number, are: number, hint = '') =>
+    `<tr><td>${label}${hint ? `<span class="src"> ${hint}</span>` : ''}</td>
+      <td class="csp"><strong>${formatEuro(csp)}</strong></td>
+      <td class="are"><strong>${formatEuro(are)}</strong></td></tr>`;
+
   return `<div class="verdict">${phrase}</div>
-    <p class="muted">CSP : ${formatEuro(c.csp.total)} &nbsp;·&nbsp; ARE : ${formatEuro(c.are.total)}
-      (cash total brut : allocations + préavis conservé + indemnité de licenciement).</p>`;
+    <table class="figures breakdown">
+      <thead><tr><th>D'où vient le total</th><th class="csp">CSP</th><th class="are">ARE</th></tr></thead>
+      <tbody>
+        ${row('Allocations chômage', c.csp.allocations, c.are.allocations, '(ASP 75% vs ARE 57%)')}
+        ${row('Préavis conservé', c.csp.preavisConserve, c.are.preavisConserve, '(le CSP en sacrifie jusqu\'à 3 mois)')}
+        ${row('Indemnité de licenciement', c.csp.indemniteLicenciement, c.are.indemniteLicenciement, '(identique)')}
+        <tr class="total-row"><td><strong>Total</strong></td>
+          <td class="csp"><strong>${formatEuro(c.csp.total)}</strong></td>
+          <td class="are"><strong>${formatEuro(c.are.total)}</strong></td></tr>
+      </tbody>
+    </table>`;
 }
 
 function breakEvenSentence(months: number[]): string {

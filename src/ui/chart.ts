@@ -71,11 +71,23 @@ export function renderChartSvg(
     )
     .join('');
 
+  // Bande « qui gagne » juste au-dessus de l'axe : vert = CSP devant, ambre = ARE devant.
+  const bandY = PAD.top + plotH + 4;
+  const bandH = 7;
+  const winnerBand = series.months
+    .slice(0, -1)
+    .map((m, i) => {
+      const color = series.csp[i]! >= series.are[i]! ? 'var(--csp)' : 'var(--are)';
+      return `<rect x="${x(m)}" y="${bandY}" width="${(x(series.months[i + 1]!) - x(m)) + 0.5}" height="${bandH}" fill="${color}" opacity="0.85" />`;
+    })
+    .join('');
+
   const cur = Math.max(0, Math.min(series.maxMonths, currentMonth));
 
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
       aria-label="Comparaison du cash total CSP vs ARE selon le mois de retour à l'emploi">
     ${yTicks}
+    ${winnerBand}
     ${beMarkers}
     <path d="${path(series.are)}" fill="none" stroke="var(--are)" stroke-width="2.5" />
     <path d="${path(series.csp)}" fill="none" stroke="var(--csp)" stroke-width="2.5" />

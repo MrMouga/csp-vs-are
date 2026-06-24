@@ -99,7 +99,11 @@ input[type="range"] { width: 100%; }
 
 table.figures { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.figures th, table.figures td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
-table.figures .src { color: var(--muted); font-size: 0.82rem; }
+table.figures .src { color: var(--muted); font-size: 0.82rem; font-weight: 400; }
+table.figures td.csp, table.figures th.csp { color: var(--csp); text-align: right; }
+table.figures td.are, table.figures th.are { color: var(--are); text-align: right; }
+table.breakdown { margin-top: 10px; }
+table.breakdown .total-row td { border-top: 2px solid var(--ink); border-bottom: none; padding-top: 8px; }
 
 .exclusion { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
 
