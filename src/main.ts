@@ -402,10 +402,13 @@ function verdictHtml(months: number): string {
   const degApplies = resolved().age < b.degressivite.ageExemption.valeur && a.sjr > b.degressivite.seuilSjr.valeur;
   const plancherAbsorbe = a.areDaily * b.degressivite.coefficient.valeur < b.degressivite.plancher.valeur;
   const areReduitMensuel = mensuel(Math.max(a.areDaily * b.degressivite.coefficient.valeur, b.degressivite.plancher.valeur));
-  const arrow = ` <span class="evo">→</span> `;
-  // CSP : ASP (12 mois) puis ARE résiduelle. ARE : plein 6 mois puis −30 % si haut salaire.
-  const cspMensuelCell = `${formatEuro(aspMensuel)}${arrow}${formatEuro(areMensuel)}`;
-  const areMensuelCell = degApplies ? `${formatEuro(areMensuel)}${arrow}${formatEuro(areReduitMensuel)}` : formatEuro(areMensuel);
+
+  // Montant mensuel DYNAMIQUE : ce que tu touches au mois pointé par le curseur.
+  const areDureeMois = a.areDurationDays / 30.42;
+  const residuelFinMois = 12 + (a.areDurationDays - 365) / 30.42;
+  const cspMensuelNow = months < 12 ? aspMensuel : months < residuelFinMois ? areMensuel : 0;
+  const areMensuelNow = months >= areDureeMois ? 0 : degApplies && months >= 6 ? areReduitMensuel : areMensuel;
+  const mensuelCell = (v: number) => (v > 0 ? `${formatEuro(v)}/mois` : '<span class="evo">épuisé</span>');
   const ecart = Math.abs(c.differentialGross);
   const monthsLabel = `${months.toFixed(1).replace('.0', '')} mois`;
   let hero: string;
@@ -426,9 +429,9 @@ function verdictHtml(months: number): string {
       <thead><tr><th>D'où vient le total (${net ? 'net' : 'brut'})</th><th class="csp">CSP</th><th class="are">ARE</th></tr></thead>
       <tbody>
         ${row('Allocations chômage', c.csp.allocations, c.are.allocations, '(cumul sur la période)')}
-        <tr class="subrow"><td>↳ Montant mensuel<span class="src"> (évolue dans le temps)</span></td>
-          <td class="csp">${cspMensuelCell}</td><td class="are">${areMensuelCell}</td></tr>
-        <tr class="subrow phase-note"><td colspan="3"><span class="src">CSP : ASP (mois 1-12) puis ARE résiduelle. ARE : plein 6 mois${degApplies ? (plancherAbsorbe ? ' puis dégressivité (faible ici : amortie par le plancher)' : ' puis −30 % (dégressivité haut salaire)') : ', constant'}.</span></td></tr>
+        <tr class="subrow"><td>↳ Montant par mois <strong>à ${monthsLabel}</strong></td>
+          <td class="csp"><strong>${mensuelCell(cspMensuelNow)}</strong></td><td class="are"><strong>${mensuelCell(areMensuelNow)}</strong></td></tr>
+        <tr class="subrow phase-note"><td colspan="3"><span class="src">Déplace le curseur pour voir le montant mensuel à chaque étape. CSP : ASP (mois 1-12) puis ARE résiduelle. ARE : plein 6 mois${degApplies ? (plancherAbsorbe ? ' puis légère dégressivité (amortie par le plancher)' : ' puis −30 % (dégressivité)') : ', constant'} jusqu\'à ~${Math.round(areDureeMois)} mois.</span></td></tr>
         ${row('Préavis conservé', c.csp.preavisConserve, c.are.preavisConserve, '(le CSP en sacrifie jusqu\'à 3 mois)')}
         ${row('Indemnité de licenciement', c.csp.indemniteLicenciement, c.are.indemniteLicenciement, '(identique, exonérée)')}
         <tr class="total-row"><td><strong>Total</strong></td>
