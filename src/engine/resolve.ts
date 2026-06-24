@@ -1,4 +1,5 @@
 import { computeSjrFromPeriods } from './sjr-periods';
+import { computeSalaireReferenceLicenciement } from './salaire-reference';
 import { computeIndemniteRupture, type StatutSyntec } from './indemnite';
 import type { EmploymentPeriod, UserInput } from './types';
 
@@ -42,16 +43,15 @@ export function resolveInput(input: ComparisonInput): UserInput {
   const ancienneteMois = monthsInclusive(last.dateDebut, last.dateFin);
   const salaireBrutMensuel = last.salaireBrutMensuel;
 
-  // Indemnité légale : l'ancienneté se calcule JUSQU'À LA FIN DU PRÉAVIS, même si
-  // celui-ci n'est pas effectué (article R1234-1 du Code du travail). On ajoute donc
-  // le préavis à l'ancienneté de contrat pour cette indemnité uniquement.
-  // NB : le salaire de référence légal est le plus favorable entre la moyenne des 12
-  // derniers mois et le 1/3 des 3 derniers mois ; pour un salaire stable (cas v1), les
-  // deux égalent le salaire mensuel utilisé ici.
+  // Indemnité de licenciement :
+  // - l'ancienneté se calcule JUSQU'À LA FIN DU PRÉAVIS, même non effectué (R1234-1) ;
+  // - le salaire de référence = max(moyenne 12 derniers mois ; 1/3 des 3 derniers mois)
+  //   (R1234-4), distinct du salaire mensuel courant (qui sert au préavis).
   const ancienneteSeveranceMois = ancienneteMois + Math.max(0, input.preavisMois);
+  const salaireReferenceLicenciement = computeSalaireReferenceLicenciement(input.periods, last.dateFin);
   const indemniteLicenciement =
     input.indemniteLicenciementManuelle ??
-    computeIndemniteRupture(salaireBrutMensuel, ancienneteSeveranceMois, {
+    computeIndemniteRupture(salaireReferenceLicenciement, ancienneteSeveranceMois, {
       syntec: input.syntec,
       ...(input.statutSyntec ? { statut: input.statutSyntec } : {}),
     });
