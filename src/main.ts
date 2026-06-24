@@ -46,7 +46,7 @@ function newPeriod(): EmploymentPeriod {
   };
 }
 
-let periods: EmploymentPeriod[] = [newPeriod()];
+let periods: EmploymentPeriod[] = [];
 const preavis = { preavisMois: 1, preavisPaye: true };
 
 let step: Step = 1;
@@ -251,8 +251,8 @@ function renderPeriods(): void {
       <p class="muted">Renseigne tes emplois salariés sur les
         <strong>${situation.age >= 55 ? 36 : 24} derniers mois</strong> avant ta fin de contrat.
         Le calcul du SJR (et donc de l'allocation) en dépend.</p>
-      ${periods.map(periodCard).join('')}
-      ${editingForm ? '' : '<button class="link add" data-addp>+ Ajouter une période</button>'}
+      ${periods.length === 0 && !editingForm ? '<p class="muted empty">Aucune période pour l\'instant.</p>' : periods.map(periodCard).join('')}
+      ${editingForm ? '' : `<button class="link add" data-addp>+ Ajouter ${periods.length === 0 ? 'une période d\'emploi' : 'une période'}</button>`}
     </div>
     ${editingForm ? periodForm() : ''}
     ${editingForm ? '' : `<div class="navrow">
