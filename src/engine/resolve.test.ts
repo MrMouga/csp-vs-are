@@ -42,4 +42,16 @@ describe('resolveInput + analyze : conformité au simulateur France Travail', ()
     expect(resolved.indemniteLicenciement).toBeGreaterThan(2400);
     expect(resolved.indemnitesSupraLegales).toBe(0);
   });
+
+  test('l\'ancienneté de l\'indemnité légale inclut le préavis (R1234-1)', () => {
+    const periods: EmploymentPeriod[] = [
+      { dateDebut: '2024-01-01', dateFin: '2025-12-31', salaireBrutMensuel: 2000, heuresHebdo: 35, motifFin: 'Licenciement économique', indemniteCongesPayes: 0, indemniteRupture: 0 },
+    ];
+    const sansPreavis = resolveInput({ age: 40, periods, preavisMois: 0, preavisPaye: true });
+    const avecPreavis = resolveInput({ age: 40, periods, preavisMois: 2, preavisPaye: true });
+    // 24 mois → 1/4 × 2 ans × 2000 = 1000 € ; avec +2 mois de préavis = 26 mois → ~1083 €.
+    expect(sansPreavis.indemniteLicenciement).toBeCloseTo(1000, 0);
+    expect(avecPreavis.indemniteLicenciement).toBeGreaterThan(sansPreavis.indemniteLicenciement);
+    expect(avecPreavis.indemniteLicenciement).toBeCloseTo(1083, 0);
+  });
 });

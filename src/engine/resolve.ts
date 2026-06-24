@@ -37,9 +37,17 @@ export function resolveInput(input: ComparisonInput): UserInput {
   const sjr = computeSjrFromPeriods(input.periods, input.age);
   const ancienneteMois = monthsInclusive(last.dateDebut, last.dateFin);
   const salaireBrutMensuel = last.salaireBrutMensuel;
+
+  // Indemnité légale : l'ancienneté se calcule JUSQU'À LA FIN DU PRÉAVIS, même si
+  // celui-ci n'est pas effectué (article R1234-1 du Code du travail). On ajoute donc
+  // le préavis à l'ancienneté de contrat pour cette indemnité uniquement.
+  // NB : le salaire de référence légal est le plus favorable entre la moyenne des 12
+  // derniers mois et le 1/3 des 3 derniers mois ; pour un salaire stable (cas v1), les
+  // deux égalent le salaire mensuel utilisé ici.
+  const ancienneteSeveranceMois = ancienneteMois + Math.max(0, input.preavisMois);
   const indemniteLicenciement =
     input.indemniteLicenciementManuelle ??
-    computeIndemniteLegaleLicenciement(salaireBrutMensuel, ancienneteMois);
+    computeIndemniteLegaleLicenciement(salaireBrutMensuel, ancienneteSeveranceMois);
   const indemnitesSupraLegales = Math.max(0, last.indemniteRupture - indemniteLicenciement);
   const joursCongesPayesNonPris = sjr > 0 ? last.indemniteCongesPayes / sjr : 0;
 
