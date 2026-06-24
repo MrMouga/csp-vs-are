@@ -135,6 +135,11 @@ details.figure[open] > summary::before { content: "▾"; }
 .csp { color: var(--csp); }
 .are { color: var(--are); }
 
+h3.figgroup { font-size: 0.95rem; margin: 18px 0 2px; padding-bottom: 4px; border-bottom: 2px solid var(--line); }
+h3.figgroup.csp { color: var(--csp); border-color: var(--csp); }
+h3.figgroup.are { color: var(--are); border-color: var(--are); }
+h3.figgroup:first-child { margin-top: 4px; }
+
 @media (max-width: 560px) {
   #app { padding: 16px 12px 56px; }
   h1 { font-size: 1.3rem; }

@@ -3,6 +3,7 @@ import { baremes2026 } from './engine/baremes-2026';
 import { checkEligibility } from './engine/eligibility';
 import { analyze, compareAt } from './engine/compare';
 import { computeAreDeferralDays } from './engine/differe';
+import { computeNetDaily } from './engine/net';
 import { computeIndemniteRupture } from './engine/indemnite';
 import { resolveInput, type ComparisonInput } from './engine/resolve';
 import type { EmploymentPeriod, UserInput } from './engine/types';
@@ -221,7 +222,6 @@ function periodForm(): string {
     <div class="period-actions">
       <button class="primary" data-savep>Valider la période</button>
       <button class="link" data-cancelp>Annuler</button>
-      <button class="link" data-useauto>Recalculer l'estimation</button>
     </div>
   </div>`;
 }
@@ -294,12 +294,6 @@ function renderPeriods(): void {
     });
     app.querySelector('[data-savep]')!.addEventListener('click', savePeriod);
     app.querySelector('[data-cancelp]')!.addEventListener('click', () => { editing = null; editDraft = null; stepError = ''; renderPeriods(); });
-    app.querySelector('[data-useauto]')!.addEventListener('click', () => {
-      const mois = monthsInclusive(editDraft!.dateDebut, editDraft!.dateFin);
-      editDraft!.indemniteRupture = Math.round(estimRupture(editDraft!.salaireBrutMensuel, mois));
-      editRuptureAuto = true;
-      renderPeriods();
-    });
   }
   wireNav();
 }
@@ -439,37 +433,85 @@ function breakEvenSentence(months: number[]): string {
 }
 
 interface Figure { label: string; value: string; formula: string; source: string; note?: string; }
-function figures(): Figure[] {
+interface FigureGroup { titre: string; cls: string; figures: Figure[]; }
+
+function figureGroups(): FigureGroup[] {
   const input = resolved();
   const a = analyze(input, baremes2026);
   const b = baremes2026;
   const fa = b.are.tauxBas.valeur * a.sjr + b.are.partieFixe.valeur;
   const fb = b.are.tauxHaut.valeur * a.sjr;
   const differeJours = computeAreDeferralDays(input, b.differe);
-  return [
+  const degApplies = input.age < b.degressivite.ageExemption.valeur && a.sjr > b.degressivite.seuilSjr.valeur;
+
+  const commun: Figure[] = [
     { label: 'Salaire journalier de référence (SJR)', value: formatEuro2(a.sjr), formula: 'Somme des bruts sur la période de référence / jours calendaires réels (années bissextiles incluses).', source: 'Méthode France Travail.' },
-    { label: 'ASP journalière (CSP)', value: formatEuro2(a.aspDaily), formula: `75 % × SJR = 0,75 × ${formatEuro2(a.sjr)}`, source: b.asp.taux.source, note: 'Ancienneté ≥ 1 an. Jamais inférieure à l\'ARE.' },
-    { label: 'ARE journalière', value: formatEuro2(a.areDaily), formula: `max(40,4 % × SJR + 13,18 ; 57 % × SJR) = max(${formatEuro2(fa)} ; ${formatEuro2(fb)})`, source: b.are.partieFixe.source, note: 'On garde le plus favorable, plafonné à 75 % du SJR.' },
     { label: 'Indemnité de licenciement', value: formatEuro(input.indemniteLicenciement),
       formula: situation.syntec
         ? (situation.statutSyntec === 'cadre' ? 'Syntec Cadre : 1/3 de mois par année (sans plafond depuis mai 2023), ou le légal si plus favorable.' : 'Syntec ETAM : 1/4 de mois/an (plafond 10 mois), ou le légal si plus favorable.')
         : 'Légal : 1/4 de mois par an (10 premières années) puis 1/3 au-delà.',
       source: situation.syntec ? 'Convention Syntec, art. 19 (+ minimum légal).' : 'Barème légal (Code du travail).',
-      note: 'Ancienneté comptée jusqu\'à la fin du préavis. Identique CSP/ARE ; la part supra-légale allonge le différé ARE.' },
-    { label: 'Délai avant le 1er versement de l\'ARE', value: `${Math.round(differeJours)} jours`, formula: '7 j de carence + indemnité CP / SJR (max 30 j) + part supra-légale / 111,8 (max 75 j).', source: b.differe.delaiAttenteJours.source, note: 'Le CSP démarre sans aucun délai.' },
-    { label: 'Durée maximale de l\'ASP (CSP)', value: '12 mois (365 j)', formula: 'Durée fixe du CSP.', source: b.asp.plafondJournalier.source, note: 'Après 12 mois, bascule en ARE résiduelle sans nouvelle carence.' },
-    { label: 'Durée maximale de l\'ARE', value: `${a.areDurationDays} j (~${Math.round(a.areDurationDays / 30.42)} mois)`, formula: `Selon l'âge (${input.age} ans) : < 55 → 548 j ; 55-56 → 685 j ; ≥ 57 → 822 j.`, source: b.duree.moins55.source },
+      note: 'Salaire de référence = max(moyenne 12 mois ; 1/3 des 3 mois). Ancienneté jusqu\'à la fin du préavis. Identique CSP/ARE.' },
+  ];
+  const csp: Figure[] = [
+    { label: 'ASP journalière', value: formatEuro2(a.aspDaily), formula: `75 % × SJR = 0,75 × ${formatEuro2(a.sjr)}`, source: b.asp.taux.source, note: 'Jamais inférieure à l\'ARE. Pas de carence, pas de dégressivité.' },
+    { label: 'ASP nette mensuelle (estimation)', value: formatEuro(a.aspNetMonthly), formula: 'Brut − retraite complémentaire (3 % du SJR), comme le simulateur France Travail.', source: 'France Travail.', note: 'La CSG/CRDS peut réduire un peu plus selon ton revenu fiscal.' },
+    { label: 'Durée de l\'ASP', value: '12 mois (365 j)', formula: 'Durée fixe du CSP.', source: b.asp.plafondJournalier.source, note: 'Après 12 mois, si toujours au chômage : bascule en ARE résiduelle sans nouvelle carence (durée réduite des jours d\'ASP).' },
+  ];
+  const are: Figure[] = [
+    { label: 'ARE journalière', value: formatEuro2(a.areDaily), formula: `max(40,4 % × SJR + 13,18 ; 57 % × SJR) = max(${formatEuro2(fa)} ; ${formatEuro2(fb)})`, source: b.are.partieFixe.source, note: 'On garde le plus favorable, plafonné à 75 % du SJR.' },
+    { label: 'ARE nette mensuelle (estimation)', value: formatEuro(a.areNetMonthly), formula: 'Brut − retraite complémentaire (3 % du SJR).', source: 'France Travail.' },
+    { label: 'Délai avant le 1er versement', value: `${Math.round(differeJours)} jours`, formula: '7 j de carence + indemnité CP / SJR (max 30 j) + part supra-légale / 111,8 (max 75 j).', source: b.differe.delaiAttenteJours.source, note: 'Le CSP, lui, démarre sans aucun délai.' },
+    { label: 'Durée de l\'ARE', value: `${a.areDurationDays} j (~${Math.round(a.areDurationDays / 30.42)} mois)`, formula: `Selon l'âge (${input.age} ans) : < 55 → 548 j ; 55-56 → 685 j ; ≥ 57 → 822 j.`, source: b.duree.moins55.source },
+  ];
+  if (degApplies) {
+    are.push({ label: 'Dégressivité (haut salaire)', value: '−30 % dès le 7e mois', formula: `Après 6 mois, ARE × 0,7 = ${formatEuro2(Math.max(a.areDaily * 0.7, b.degressivite.plancher.valeur))} /j (plancher 92,57 €/j).`, source: b.degressivite.seuilSjr.source, note: 'Ne touche que l\'ARE, jamais l\'ASP du CSP. Un vrai avantage du CSP pour les hauts salaires.' });
+  }
+  return [
+    { titre: 'Commun aux deux options', cls: '', figures: commun },
+    { titre: 'Si tu adhères au CSP', cls: 'csp', figures: csp },
+    { titre: 'Si tu refuses (ARE)', cls: 'are', figures: are },
   ];
 }
 
 function figuresSection(): string {
-  return figures().map((f) => `<details class="figure">
+  return figureGroups().map((g) => `<h3 class="figgroup ${g.cls}">${escapeHtml(g.titre)}</h3>${g.figures.map((f) => `<details class="figure">
     <summary><span class="fig-label">${escapeHtml(f.label)}</span><span class="fig-val">${f.value}</span></summary>
     <div class="fig-body">
       <div><span class="fig-k">Calcul :</span> ${escapeHtml(f.formula)}</div>
       ${f.note ? `<div class="fig-note">${escapeHtml(f.note)}</div>` : ''}
       <div class="src">Source : ${escapeHtml(f.source)}</div>
-    </div></details>`).join('');
+    </div></details>`).join('')}`).join('');
+}
+
+/** Évolution du montant net mensuel par phase, pour chaque scénario (demande #3). */
+function monthlyEvolutionSection(): string {
+  const input = resolved();
+  const a = analyze(input, baremes2026);
+  const b = baremes2026;
+  const aspNet = computeNetDaily(a.aspDaily, a.sjr, b) * 30;
+  const areNet = computeNetDaily(a.areDaily, a.sjr, b) * 30;
+  const degApplies = input.age < b.degressivite.ageExemption.valeur && a.sjr > b.degressivite.seuilSjr.valeur;
+  const areReduitNet = computeNetDaily(Math.max(a.areDaily * b.degressivite.coefficient.valeur, b.degressivite.plancher.valeur), a.sjr, b) * 30;
+  const areDureeMois = a.areDurationDays / 30.42; // ~18 pour < 55 ans
+  const residuelFinMois = 12 + (a.areDurationDays - 365) / 30.42; // CSP : fin de l'ARE résiduelle (~18)
+
+  // Montant net mensuel sous CSP / ARE au mois M (indemnisation).
+  const cspAt = (m: number) => (m <= 12 ? aspNet : m <= residuelFinMois ? areNet : 0);
+  const areAt = (m: number) => (m > areDureeMois ? 0 : degApplies && m > 6 ? areReduitNet : areNet);
+
+  const phases: Array<[string, number]> = [
+    ['Mois 1 à 6', 3], ['Mois 7 à 12', 9], ['Mois 13 à 18', 15], ['Au-delà de 18 mois', 22],
+  ];
+  const cell = (v: number) => (v > 0 ? formatEuro(v) : '—');
+  const rows = phases.map(([label, m]) =>
+    `<tr><td>${label}</td><td class="csp"><strong>${cell(cspAt(m))}</strong></td><td class="are"><strong>${cell(areAt(m))}</strong></td></tr>`).join('');
+
+  return `<table class="figures breakdown">
+      <thead><tr><th>Net par mois si tu es au chômage…</th><th class="csp">CSP</th><th class="are">ARE</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="muted">Le CSP paie plus (75 %) pendant 12 mois, puis bascule sur l'ARE résiduelle. L'ARE paie moins (57 %) mais plus longtemps${degApplies ? ', et baisse de 30 % après 6 mois (haut salaire)' : ''}. Montants nets estimés (× 30).</p>`;
 }
 
 function renderResult(): void {
@@ -481,6 +523,11 @@ function renderResult(): void {
     ${progressBar()}
     ${disclaimer}
     <div class="card" id="verdict-card">${verdictHtml(currentMonths)}</div>
+    <div class="card">
+      <h2>Ce que tu touches chaque mois, dans le temps</h2>
+      <p class="muted">Pour comprendre le total : voici le montant net par mois selon la durée de ton chômage.</p>
+      ${monthlyEvolutionSection()}
+    </div>
     <div class="card">
       <h2>La question qui change tout : dans combien de temps retrouves-tu un emploi ?</h2>
       <p class="muted" id="be-sentence">${breakEvenSentence(a.breakEvenMonths)}</p>
