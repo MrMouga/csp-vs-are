@@ -9,8 +9,6 @@
 
 const AGE_SENIOR = 55;
 const ANCIENNETE_MIN_MOIS = 12;
-/** Seuil mensuel brut au-delà duquel la dégressivité s'applique (non modélisée en v1). */
-const SEUIL_DEGRESSIVITE_MENSUEL = 4939.67;
 
 export interface EligibilityInput {
   estCDI: boolean;
@@ -48,9 +46,6 @@ export function checkEligibility(input: EligibilityInput): EligibilityResult {
   }
   if (input.ancienneteMois < ANCIENNETE_MIN_MOIS) {
     exclusions.push('Avec moins d\'un an d\'ancienneté, l\'ASP est égale à l\'ARE : le choix se joue surtout sur le préavis. Cas non couvert en v1.');
-  }
-  if (input.salaireBrutMensuel >= SEUIL_DEGRESSIVITE_MENSUEL) {
-    exclusions.push('Au-delà d\'environ 4 940 €/mois, l\'allocation devient dégressive après 6 mois. Non modélisé en v1.');
   }
 
   return { eligible: exclusions.length === 0, exclusions };

@@ -28,8 +28,8 @@ describe('checkEligibility (périmètre v1 = cas standard)', () => {
     expect(checkEligibility({ ...standard, tempsPlein: false }).eligible).toBe(false);
   });
 
-  test('haut salaire (dégressivité non modélisée) → hors périmètre', () => {
-    expect(checkEligibility({ ...standard, salaireBrutMensuel: 5200 }).eligible).toBe(false);
+  test('haut salaire → désormais éligible (dégressivité modélisée)', () => {
+    expect(checkEligibility({ ...standard, salaireBrutMensuel: 5200 }).eligible).toBe(true);
   });
 
   test('rupture non économique → hors périmètre', () => {

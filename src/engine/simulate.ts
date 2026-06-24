@@ -3,6 +3,7 @@ import { computeAspDaily } from './asp';
 import { computeAreDaily } from './are';
 import { computeAreDurationDays } from './duree';
 import { computeAreDeferralDays } from './differe';
+import { computeAreAllocation } from './degressivite';
 import { computePreavisKept, type Scenario } from './preavis';
 import type { Baremes, UserInput } from './types';
 
@@ -66,16 +67,19 @@ export function simulateScenario(
     allocations = aspDaily * aspDays;
 
     // Post-CSP : bascule en ARE résiduelle si toujours au chômage après 12 mois.
+    // (L'ASP n'est jamais dégressive ; l'ARE résiduelle l'est, mais sa courte durée
+    // la garde presque toujours au plein tarif.)
     if (unemploymentDays > ASP_MAX_DAYS) {
       const residualDurationDays = Math.max(0, areDurationDays - ASP_MAX_DAYS);
       const areResidualDays = Math.min(unemploymentDays - ASP_MAX_DAYS, residualDurationDays);
-      allocations += areDaily * areResidualDays;
+      allocations += computeAreAllocation(areResidualDays, areDaily, sjr, input.age, baremes.degressivite);
     }
     preavisConserve = computePreavisKept(input, 'csp');
   } else {
     const deferralDays = computeAreDeferralDays(input, baremes.differe);
     const payableDays = Math.max(0, Math.min(unemploymentDays - deferralDays, areDurationDays));
-    allocations = areDaily * payableDays;
+    // Dégressivité des hauts salaires : plein tarif 6 mois puis −30 % (plancher).
+    allocations = computeAreAllocation(payableDays, areDaily, sjr, input.age, baremes.degressivite);
     preavisConserve = computePreavisKept(input, 'are');
   }
 
