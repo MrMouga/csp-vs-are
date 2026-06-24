@@ -107,6 +107,30 @@ table.breakdown .total-row td { border-top: 2px solid var(--ink); border-bottom:
 
 .exclusion { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
 
+details.figure { border-bottom: 1px solid var(--line); }
+details.figure > summary {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 10px 2px; cursor: pointer; list-style: none;
+}
+details.figure > summary::-webkit-details-marker { display: none; }
+details.figure > summary::before { content: "▸"; color: var(--muted); margin-right: 6px; font-size: 0.8rem; }
+details.figure[open] > summary::before { content: "▾"; }
+.fig-label { font-weight: 600; flex: 1; }
+.fig-val { font-weight: 700; color: var(--ink); white-space: nowrap; }
+.fig-body { padding: 2px 0 12px 18px; font-size: 0.9rem; color: var(--muted); }
+.fig-body > div { margin-bottom: 5px; }
+.fig-k { font-weight: 600; color: var(--ink); }
+.fig-note { font-style: italic; }
+
+.csp { color: var(--csp); }
+.are { color: var(--are); }
+
+@media print {
+  /* Force l'ouverture de tous les volets dépliables pour le PDF. */
+  details.figure > *:not(summary) { display: block !important; }
+  details.figure > summary::before { content: ""; }
+}
+
 footer { margin-top: 28px; font-size: 0.82rem; color: var(--muted); }
 
 @media print {

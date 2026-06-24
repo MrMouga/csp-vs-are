@@ -2,6 +2,7 @@ import './styles.css';
 import { baremes2026 } from './engine/baremes-2026';
 import { checkEligibility, type EligibilityInput } from './engine/eligibility';
 import { analyze, compareAt } from './engine/compare';
+import { computeAreDeferralDays } from './engine/differe';
 import type { UserInput } from './engine/types';
 import { buildSeries, renderChartSvg } from './ui/chart';
 import { formatEuro, formatEuro2, escapeHtml } from './ui/format';
@@ -180,21 +181,94 @@ function breakEvenSentence(months: number[]): string {
     Déplace le curseur pour voir.`;
 }
 
-function figuresTable(): string {
+interface Figure {
+  label: string;
+  value: string;
+  formula: string;
+  source: string;
+  note?: string;
+}
+
+function figures(): Figure[] {
   const input = userInput();
   const a = analyze(input, baremes2026);
   const b = baremes2026;
-  const rows: Array<[string, string, string]> = [
-    ['Salaire journalier de référence (SJR)', formatEuro2(a.sjr), 'Salaire mensuel × 12 / 365 (cas standard)'],
-    ['ASP journalière (CSP)', formatEuro2(a.aspDaily), b.asp.taux.libelle + ' — ' + b.asp.taux.source],
-    ['ARE journalière', formatEuro2(a.areDaily), 'max(40,4% du SJR + ' + b.are.partieFixe.libelle + ' ; 57% du SJR)'],
-    ['ASP nette mensuelle estimée', formatEuro(a.aspNetMonthly), 'estimation (retraite 3% + CSG/CRDS)'],
-    ['ARE nette mensuelle estimée', formatEuro(a.areNetMonthly), 'estimation (retraite 3% + CSG/CRDS)'],
-    ['Durée max ASP (CSP)', '12 mois (365 j)', b.asp.plafondJournalier.source],
-    ['Durée max ARE', `${a.areDurationDays} jours`, b.duree.moins55.libelle + ' — ' + b.duree.moins55.source],
+  const fa = b.are.tauxBas.valeur * a.sjr + b.are.partieFixe.valeur;
+  const fb = b.are.tauxHaut.valeur * a.sjr;
+  const differeJours = computeAreDeferralDays(input, b.differe);
+
+  return [
+    {
+      label: 'Salaire journalier de référence (SJR)',
+      value: formatEuro2(a.sjr),
+      formula: `Salaire mensuel × 12 / 365 = ${formatEuro(input.salaireBrutMensuel)} × 12 / 365`,
+      source: 'Règle France Travail pour un salaire stable (cas standard).',
+    },
+    {
+      label: 'ASP journalière (allocation du CSP)',
+      value: formatEuro2(a.aspDaily),
+      formula: `75 % × SJR = 0,75 × ${formatEuro2(a.sjr)}`,
+      source: b.asp.taux.source,
+      note: 'Ancienneté ≥ 1 an. L\'ASP ne peut jamais être inférieure à l\'ARE.',
+    },
+    {
+      label: 'ARE journalière',
+      value: formatEuro2(a.areDaily),
+      formula: `max(40,4 % × SJR + 13,18 ; 57 % × SJR) = max(${formatEuro2(fa)} ; ${formatEuro2(fb)})`,
+      source: b.are.partieFixe.source,
+      note: 'On garde le plus favorable des deux formules, plafonné à 75 % du SJR.',
+    },
+    {
+      label: 'ASP nette mensuelle (estimation)',
+      value: formatEuro(a.aspNetMonthly),
+      formula: 'Brut journalier − retraite 3 % du SJR − (CSG 6,2 % + CRDS 0,5 %) si ≥ 61 €/j, puis × 30',
+      source: b.net.tauxCsg.source,
+      note: 'Estimation. Le chiffre canonique reste le brut.',
+    },
+    {
+      label: 'ARE nette mensuelle (estimation)',
+      value: formatEuro(a.areNetMonthly),
+      formula: 'Même méthode que l\'ASP nette.',
+      source: b.net.tauxCsg.source,
+      note: 'Estimation. Les taux réduits de CSG ne sont pas modélisés.',
+    },
+    {
+      label: 'Durée maximale de l\'ASP (CSP)',
+      value: '12 mois (365 jours)',
+      formula: 'Durée fixe du CSP.',
+      source: b.asp.plafondJournalier.source,
+      note: 'Après 12 mois, si tu es encore au chômage, tu bascules sur l\'ARE sans nouvelle carence (durée réduite des jours d\'ASP déjà consommés).',
+    },
+    {
+      label: 'Durée maximale de l\'ARE',
+      value: `${a.areDurationDays} jours (~${Math.round(a.areDurationDays / 30.42)} mois)`,
+      formula: `Selon l'âge (${input.age} ans) : < 55 → 548 j ; 55-56 → 685 j ; ≥ 57 → 822 j`,
+      source: b.duree.moins55.source,
+      note: 'Coefficient 0,75 déjà inclus dans ces durées.',
+    },
+    {
+      label: 'Délai avant le 1er versement de l\'ARE',
+      value: `${differeJours} jours`,
+      formula: '7 j de carence + différé congés payés (max 30 j) + différé spécifique (indemnités supra-légales ÷ 111,8, max 75 j en éco)',
+      source: b.differe.delaiAttenteJours.source,
+      note: 'Le CSP, lui, démarre sans aucun délai. C\'est l\'un des leviers de la bascule.',
+    },
   ];
-  return `<table class="figures"><thead><tr><th>Élément</th><th>Valeur</th><th>D'où ça vient</th></tr></thead>
-    <tbody>${rows.map(([k, v, s]) => `<tr><td>${escapeHtml(k)}</td><td><strong>${v}</strong></td><td class="src">${escapeHtml(s)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function figuresSection(): string {
+  return figures()
+    .map(
+      (f) => `<details class="figure">
+        <summary><span class="fig-label">${escapeHtml(f.label)}</span><span class="fig-val">${f.value}</span></summary>
+        <div class="fig-body">
+          <div><span class="fig-k">Calcul :</span> ${escapeHtml(f.formula)}</div>
+          ${f.note ? `<div class="fig-note">${escapeHtml(f.note)}</div>` : ''}
+          <div class="src">Source : ${escapeHtml(f.source)}</div>
+        </div>
+      </details>`,
+    )
+    .join('');
 }
 
 function renderResult(): void {
@@ -214,11 +288,20 @@ function renderResult(): void {
       </div>
       <div class="legend"><span class="l-csp">CSP</span><span class="l-are">ARE</span></div>
       <div id="chart">${renderChartSvg(series, currentMonths, a.breakEvenMonths)}</div>
+      <details class="figure">
+        <summary><span class="fig-label">Comment lire ce graphe ?</span></summary>
+        <div class="fig-body">
+          <div>Chaque courbe = le cash total que tu touches selon le moment où tu retrouves un emploi
+            (horizontal). <span class="csp">Vert = CSP</span>, <span class="are">ambre = ARE</span>.</div>
+          <div class="fig-note">La bande colorée sous le graphe montre qui gagne à chaque instant. Là où elle
+            change de couleur, c'est le point de bascule. Déplace le curseur pour fixer ton hypothèse de retour à l'emploi.</div>
+        </div>
+      </details>
     </div>
     <div class="card">
       <h2>D'où viennent les chiffres</h2>
-      <p class="muted">Chaque montant est calculé à partir des barèmes officiels 2026. Tu peux les vérifier.</p>
-      ${figuresTable()}
+      <p class="muted">Clique sur un montant pour voir son calcul exact et sa source officielle.</p>
+      ${figuresSection()}
     </div>
     <div class="print-only">
       <p>Document généré par un outil d'aide à la décision. Estimation non officielle, barèmes France Travail / Unédic 2026. Vérifier auprès de France Travail.</p>
