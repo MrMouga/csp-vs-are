@@ -400,6 +400,7 @@ function verdictHtml(months: number): string {
   const aspMensuel = mensuel(a.aspDaily);
   const areMensuel = mensuel(a.areDaily);
   const degApplies = resolved().age < b.degressivite.ageExemption.valeur && a.sjr > b.degressivite.seuilSjr.valeur;
+  const plancherAbsorbe = a.areDaily * b.degressivite.coefficient.valeur < b.degressivite.plancher.valeur;
   const areReduitMensuel = mensuel(Math.max(a.areDaily * b.degressivite.coefficient.valeur, b.degressivite.plancher.valeur));
   const arrow = ` <span class="evo">→</span> `;
   // CSP : ASP (12 mois) puis ARE résiduelle. ARE : plein 6 mois puis −30 % si haut salaire.
@@ -427,7 +428,7 @@ function verdictHtml(months: number): string {
         ${row('Allocations chômage', c.csp.allocations, c.are.allocations, '(cumul sur la période)')}
         <tr class="subrow"><td>↳ Montant mensuel<span class="src"> (évolue dans le temps)</span></td>
           <td class="csp">${cspMensuelCell}</td><td class="are">${areMensuelCell}</td></tr>
-        <tr class="subrow phase-note"><td colspan="3"><span class="src">CSP : ASP (mois 1-12) puis ARE résiduelle. ARE : plein 6 mois${degApplies ? ' puis −30 % (dégressivité haut salaire)' : ', constant'}.</span></td></tr>
+        <tr class="subrow phase-note"><td colspan="3"><span class="src">CSP : ASP (mois 1-12) puis ARE résiduelle. ARE : plein 6 mois${degApplies ? (plancherAbsorbe ? ' puis dégressivité (faible ici : amortie par le plancher)' : ' puis −30 % (dégressivité haut salaire)') : ', constant'}.</span></td></tr>
         ${row('Préavis conservé', c.csp.preavisConserve, c.are.preavisConserve, '(le CSP en sacrifie jusqu\'à 3 mois)')}
         ${row('Indemnité de licenciement', c.csp.indemniteLicenciement, c.are.indemniteLicenciement, '(identique, exonérée)')}
         <tr class="total-row"><td><strong>Total</strong></td>
@@ -483,7 +484,19 @@ function figureGroups(): FigureGroup[] {
     { label: 'Durée de l\'ARE', value: `${a.areDurationDays} j (~${Math.round(a.areDurationDays / 30.42)} mois)`, formula: `Selon l'âge (${input.age} ans) : < 55 → 548 j ; 55-56 → 685 j ; ≥ 57 → 822 j.`, source: b.duree.moins55.source },
   ];
   if (degApplies) {
-    are.push({ label: 'Dégressivité (haut salaire)', value: '−30 % dès le 7e mois', formula: `Après 6 mois, ARE × 0,7 = ${formatEuro2(dispDaily(Math.max(a.areDaily * 0.7, b.degressivite.plancher.valeur)))} /j (plancher 92,57 €/j brut).`, source: b.degressivite.seuilSjr.source, note: 'Ne touche que l\'ARE, jamais l\'ASP du CSP. Un vrai avantage du CSP pour les hauts salaires.' });
+    const reduitBrut = a.areDaily * b.degressivite.coefficient.valeur;
+    const plancher = b.degressivite.plancher.valeur;
+    const finalReduit = Math.max(reduitBrut, plancher);
+    const plancherAbsorbe = reduitBrut < plancher;
+    are.push({
+      label: 'Dégressivité (haut salaire)',
+      value: `${formatEuro2(dispDaily(a.areDaily))}/j → ${formatEuro2(dispDaily(finalReduit))}/j`,
+      formula: `À partir du 7e mois : ARE × 0,7 = ${formatEuro2(dispDaily(reduitBrut))}/j, mais jamais sous le plancher de ${formatEuro2(dispDaily(plancher))}/j → on retient ${formatEuro2(dispDaily(finalReduit))}/j.`,
+      source: b.degressivite.seuilSjr.source,
+      note: plancherAbsorbe
+        ? 'À ton niveau de salaire, le plancher absorbe presque toute la baisse (effet faible). La dégressivité ne mord vraiment qu\'au-delà de ~7 000 €/mois. Ne touche que l\'ARE, jamais l\'ASP du CSP.'
+        : 'Ne touche que l\'ARE, jamais l\'ASP du CSP — un vrai avantage du CSP pour les hauts salaires.',
+    });
   }
   return [
     { titre: 'Commun aux deux options', cls: '', figures: commun },
