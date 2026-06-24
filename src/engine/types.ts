@@ -77,6 +77,20 @@ export interface NetBaremes {
   seuilExonerationJournalier: BaremeValue;
 }
 
+/** Barèmes de la dégressivité de l'ARE (hauts salaires). */
+export interface DegressiviteBaremes {
+  /** SJR (€/j) au-delà duquel la dégressivité s'applique (≈ 4 940 €/mois). */
+  seuilSjr: BaremeValue;
+  /** Coefficient appliqué après le délai (0,7 = −30 %). */
+  coefficient: BaremeValue;
+  /** Plancher journalier sous lequel l'allocation réduite ne descend pas (€/j). */
+  plancher: BaremeValue;
+  /** Nombre de mois d'indemnisation au plein tarif avant la réduction (6). */
+  moisAvantReduction: BaremeValue;
+  /** Âge à partir duquel la dégressivité ne s'applique plus (55 ans). */
+  ageExemption: BaremeValue;
+}
+
 /** Jeu de barèmes daté par date de fin de contrat (décision 4A + correction Codex #6). */
 export interface Baremes {
   /** Date de fin de contrat à partir de laquelle ces barèmes s'appliquent (ISO). */
@@ -86,6 +100,7 @@ export interface Baremes {
   duree: DureeBaremes;
   differe: DiffereBaremes;
   net: NetBaremes;
+  degressivite: DegressiviteBaremes;
 }
 
 /** Une période d'emploi salariée (pour le calcul du SJR sur la période de référence). */

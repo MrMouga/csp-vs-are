@@ -37,4 +37,11 @@ export const baremesTest: Baremes = {
     tauxRetraiteComplementaire: { valeur: 0.03, source: 'test', libelle: 'retraite compl. 3% du SJR' },
     seuilExonerationJournalier: { valeur: 61, source: 'test', libelle: 'seuil CSG/CRDS 61 €/j' },
   },
+  degressivite: {
+    seuilSjr: { valeur: 162.40, source: 'test', libelle: 'seuil 162,40 €/j' },
+    coefficient: { valeur: 0.7, source: 'test', libelle: 'coefficient 0,7' },
+    plancher: { valeur: 92.57, source: 'test', libelle: 'plancher 92,57 €/j' },
+    moisAvantReduction: { valeur: 6, source: 'test', libelle: '6 mois' },
+    ageExemption: { valeur: 55, source: 'test', libelle: '55 ans' },
+  },
 };

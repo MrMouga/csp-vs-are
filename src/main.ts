@@ -51,6 +51,7 @@ const preavis = { preavisMois: 1, preavisPaye: true };
 let step: Step = 1;
 let editing: number | null = null; // index de période en édition (null = aucune)
 let editDraft: EmploymentPeriod | null = null;
+let editRuptureAuto = true; // l'indemnité de rupture suit l'estimation auto tant que non éditée
 let stepError = '';
 let currentMonths = 6;
 
@@ -192,29 +193,51 @@ function estimRupture(salaire: number, mois: number): number {
   });
 }
 
+function estimLabelText(): string {
+  return situation.syntec
+    ? `Estimation Syntec ${situation.statutSyntec === 'cadre' ? 'Cadre' : 'ETAM'}`
+    : 'Estimation légale';
+}
+function ruptureHintText(rupture: number): string {
+  return `${estimLabelText()} : ${formatEuro(rupture)} — modifiable si tu connais le montant réel.`;
+}
+
 function periodForm(): string {
   const p = editDraft!;
   const mois = monthsInclusive(p.dateDebut, p.dateFin);
-  const estimLabel = situation.syntec ? `Estimation Syntec ${situation.statutSyntec === 'cadre' ? 'Cadre' : 'ETAM'}` : 'Estimation légale';
-  const estimLegale = estimRupture(p.salaireBrutMensuel, mois);
   return `<div class="card period-form">
     <h2>${editing === periods.length ? 'Ajouter une période' : 'Modifier la période'}</h2>
     <div class="grid2">
       <div><label>Début du contrat<span class="hint">JJ/MM/AAAA</span></label><input type="date" data-p="dateDebut" value="${p.dateDebut}" /></div>
-      <div><label>Fin du contrat<span class="hint">${mois} mois</span></label><input type="date" data-p="dateFin" value="${p.dateFin}" /></div>
+      <div><label>Fin du contrat<span class="hint" data-finhint>${mois} mois</span></label><input type="date" data-p="dateFin" value="${p.dateFin}" /></div>
     </div>
     ${numberField(p.salaireBrutMensuel, 'data-p="salaireBrutMensuel"', 'Salaire brut mensuel', 'Ton brut habituel sur cette période.', { step: 50 })}
     ${numberField(p.heuresHebdo, 'data-p="heuresHebdo"', 'Horaire hebdomadaire', '35 = temps plein.', { step: 1 })}
     <label>Motif de fin de contrat</label>
     <select data-p="motifFin">${MOTIFS.map((m) => `<option ${m === p.motifFin ? 'selected' : ''}>${m}</option>`).join('')}</select>
     ${numberField(p.indemniteCongesPayes, 'data-p="indemniteCongesPayes"', 'Indemnité de congés payés (€)', 'Reportée sur ta fin de contrat. 0 si aucune.', { step: 100 })}
-    ${numberField(p.indemniteRupture, 'data-p="indemniteRupture"', 'Indemnité de rupture (€)', `${estimLabel} : ${formatEuro(estimLegale)} — modifiable si tu connais le montant réel.`, { step: 100 })}
+    <label>Indemnité de rupture (€)<span class="hint" data-estimhint>${ruptureHintText(p.indemniteRupture)}</span></label>
+    <input type="number" data-p="indemniteRupture" value="${p.indemniteRupture}" min="0" step="100" inputmode="decimal" />
     <div class="period-actions">
       <button class="primary" data-savep>Valider la période</button>
       <button class="link" data-cancelp>Annuler</button>
-      <button class="link" data-useauto>Utiliser l'estimation (${formatEuro(estimLegale)})</button>
+      <button class="link" data-useauto>Recalculer l'estimation</button>
     </div>
   </div>`;
+}
+
+/** Ouvre le formulaire de période et préremplit l'indemnité de rupture (estimation auto). */
+function openPeriodForm(index: number, draft: EmploymentPeriod): void {
+  editing = index;
+  editDraft = { ...draft };
+  const mois = monthsInclusive(editDraft.dateDebut, editDraft.dateFin);
+  if (!(editDraft.indemniteRupture > 0)) {
+    editDraft.indemniteRupture = Math.round(estimRupture(editDraft.salaireBrutMensuel, mois));
+    editRuptureAuto = true;
+  } else {
+    editRuptureAuto = false;
+  }
+  renderPeriods();
 }
 
 function renderPeriods(): void {
@@ -238,10 +261,10 @@ function renderPeriods(): void {
     </div>`}
   `;
   app.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach((b) =>
-    b.addEventListener('click', () => { editing = Number(b.dataset.edit); editDraft = { ...periods[editing]! }; renderPeriods(); }));
+    b.addEventListener('click', () => openPeriodForm(Number(b.dataset.edit), periods[Number(b.dataset.edit)]!)));
   app.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) =>
     b.addEventListener('click', () => { periods.splice(Number(b.dataset.del), 1); renderPeriods(); }));
-  app.querySelector('[data-addp]')?.addEventListener('click', () => { editing = periods.length; editDraft = newPeriod(); renderPeriods(); });
+  app.querySelector('[data-addp]')?.addEventListener('click', () => openPeriodForm(periods.length, newPeriod()));
 
   if (editingForm) {
     app.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-p]').forEach((el) => {
@@ -249,24 +272,36 @@ function renderPeriods(): void {
         const field = el.dataset.p as keyof EmploymentPeriod;
         const val = el.tagName === 'SELECT' || (el as HTMLInputElement).type === 'date' ? el.value : Number(el.value) || 0;
         (editDraft as unknown as Record<string, unknown>)[field] = val;
-        // Met à jour l'estimation légale affichée quand dates/salaire changent.
-        if (field === 'dateDebut' || field === 'dateFin' || field === 'salaireBrutMensuel') refreshEstim();
+        if (field === 'indemniteRupture') {
+          editRuptureAuto = false; // saisie manuelle : on ne l'écrase plus
+          return;
+        }
+        // Mise à jour DOM directe (PAS de re-render → le champ garde le focus).
+        const mois = monthsInclusive(editDraft!.dateDebut, editDraft!.dateFin);
+        if (field === 'dateDebut' || field === 'dateFin') {
+          const fh = app.querySelector('[data-finhint]');
+          if (fh) fh.textContent = `${mois} mois`;
+        }
+        if (editRuptureAuto && (field === 'salaireBrutMensuel' || field === 'dateDebut' || field === 'dateFin')) {
+          const auto = Math.round(estimRupture(editDraft!.salaireBrutMensuel, mois));
+          editDraft!.indemniteRupture = auto;
+          const rInput = app.querySelector<HTMLInputElement>('[data-p="indemniteRupture"]');
+          if (rInput && document.activeElement !== rInput) rInput.value = String(auto);
+          const eh = app.querySelector('[data-estimhint]');
+          if (eh) eh.textContent = ruptureHintText(auto);
+        }
       });
     });
     app.querySelector('[data-savep]')!.addEventListener('click', savePeriod);
-    app.querySelector('[data-cancelp]')!.addEventListener('click', () => { editing = null; editDraft = null; renderPeriods(); });
+    app.querySelector('[data-cancelp]')!.addEventListener('click', () => { editing = null; editDraft = null; stepError = ''; renderPeriods(); });
     app.querySelector('[data-useauto]')!.addEventListener('click', () => {
       const mois = monthsInclusive(editDraft!.dateDebut, editDraft!.dateFin);
       editDraft!.indemniteRupture = Math.round(estimRupture(editDraft!.salaireBrutMensuel, mois));
+      editRuptureAuto = true;
       renderPeriods();
     });
   }
   wireNav();
-}
-
-function refreshEstim(): void {
-  // Re-render léger : on régénère le formulaire pour mettre à jour le hint d'estimation.
-  if (editing !== null) renderPeriods();
 }
 
 function savePeriod(): void {

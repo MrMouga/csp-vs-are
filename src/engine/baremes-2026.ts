@@ -46,4 +46,11 @@ export const baremes2026: Baremes = {
     tauxRetraiteComplementaire: { valeur: 0.03, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'retraite complémentaire 3 % du SJR' },
     seuilExonerationJournalier: { valeur: 61, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'seuil d\'exonération CSG/CRDS (61 €/j)' },
   },
+  degressivite: {
+    seuilSjr: { valeur: 162.40, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'seuil de dégressivité (SJR > 162,40 €/j ≈ 4 940 €/mois)' },
+    coefficient: { valeur: 0.7, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'réduction de 30 % (coefficient 0,7)' },
+    plancher: { valeur: 92.57, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'plancher de l\'allocation réduite (92,57 €/j)' },
+    moisAvantReduction: { valeur: 6, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'réduction à partir du 7e mois (après 6 mois)' },
+    ageExemption: { valeur: 55, source: 'Unédic Paramètres janv. 2026 [A]', libelle: 'exemption à partir de 55 ans (depuis le 1er avril 2025)' },
+  },
 };
