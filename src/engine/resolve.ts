@@ -1,5 +1,5 @@
 import { computeSjrFromPeriods } from './sjr-periods';
-import { computeIndemniteLegaleLicenciement } from './indemnite';
+import { computeIndemniteRupture, type StatutSyntec } from './indemnite';
 import type { EmploymentPeriod, UserInput } from './types';
 
 /** Entrée de comparaison basée sur les périodes d'emploi (modèle proche de France Travail). */
@@ -12,7 +12,11 @@ export interface ComparisonInput {
   preavisMois: number;
   /** Le préavis est-il payé (indemnité compensatrice) ? */
   preavisPaye: boolean;
-  /** Indemnité légale de licenciement saisie manuellement (remplace le calcul auto). */
+  /** Sous convention Syntec ? (barème de licenciement plus favorable). */
+  syntec: boolean;
+  /** Statut Syntec (ETAM ou Cadre) — change le barème conventionnel. */
+  statutSyntec?: StatutSyntec;
+  /** Indemnité de rupture saisie manuellement (remplace le calcul auto). */
   indemniteLicenciementManuelle?: number;
 }
 
@@ -47,7 +51,10 @@ export function resolveInput(input: ComparisonInput): UserInput {
   const ancienneteSeveranceMois = ancienneteMois + Math.max(0, input.preavisMois);
   const indemniteLicenciement =
     input.indemniteLicenciementManuelle ??
-    computeIndemniteLegaleLicenciement(salaireBrutMensuel, ancienneteSeveranceMois);
+    computeIndemniteRupture(salaireBrutMensuel, ancienneteSeveranceMois, {
+      syntec: input.syntec,
+      ...(input.statutSyntec ? { statut: input.statutSyntec } : {}),
+    });
   const indemnitesSupraLegales = Math.max(0, last.indemniteRupture - indemniteLicenciement);
   const joursCongesPayesNonPris = sjr > 0 ? last.indemniteCongesPayes / sjr : 0;
 

@@ -3,7 +3,7 @@ import { baremes2026 } from './engine/baremes-2026';
 import { checkEligibility } from './engine/eligibility';
 import { analyze, compareAt } from './engine/compare';
 import { computeAreDeferralDays } from './engine/differe';
-import { computeIndemniteLegaleLicenciement } from './engine/indemnite';
+import { computeIndemniteRupture } from './engine/indemnite';
 import { resolveInput, type ComparisonInput } from './engine/resolve';
 import type { EmploymentPeriod, UserInput } from './engine/types';
 import { buildSeries, renderChartSvg } from './ui/chart';
@@ -29,6 +29,8 @@ const situation = {
   tempsPlein: true,
   pasDeDroitsAnterieurs: true,
   age: 32,
+  syntec: false,
+  statutSyntec: 'cadre' as 'etam' | 'cadre',
 };
 
 function newPeriod(): EmploymentPeriod {
@@ -70,7 +72,14 @@ function monthsInclusive(debut: string, fin: string): number {
 }
 
 function comparisonInput(): ComparisonInput {
-  return { age: situation.age, periods, preavisMois: preavis.preavisMois, preavisPaye: preavis.preavisPaye };
+  return {
+    age: situation.age,
+    periods,
+    preavisMois: preavis.preavisMois,
+    preavisPaye: preavis.preavisPaye,
+    syntec: situation.syntec,
+    ...(situation.syntec ? { statutSyntec: situation.statutSyntec } : {}),
+  };
 }
 function resolved(): UserInput {
   return resolveInput(comparisonInput());
@@ -119,6 +128,16 @@ function renderSituation(): void {
       <label>Étais-tu à temps plein ?</label>${flagButtons('tempsPlein', 'Oui', 'Non')}
       <label>Es-tu libre de tout droit chômage en cours (pas de reliquat) ?</label>${flagButtons('pasDeDroitsAnterieurs', 'Oui', 'Non')}
       ${numberField(situation.age, 'data-age', 'Ton âge à la fin du contrat', 'Change la durée d\'indemnisation et la période de référence.', { min: 16 })}
+      <label>Es-tu sous la convention Syntec ?<span class="hint">Bureaux d'études, informatique, conseil, ingénierie. Barème de licenciement plus favorable.</span></label>
+      <div class="choice" data-syntec>
+        <button type="button" data-val="true" aria-pressed="${situation.syntec}">Oui</button>
+        <button type="button" data-val="false" aria-pressed="${!situation.syntec}">Non</button>
+      </div>
+      ${situation.syntec ? `<label>Ton statut</label>
+      <div class="choice" data-statut>
+        <button type="button" data-val="etam" aria-pressed="${situation.statutSyntec === 'etam'}">ETAM</button>
+        <button type="button" data-val="cadre" aria-pressed="${situation.statutSyntec === 'cadre'}">Cadre</button>
+      </div>` : ''}
     </div>
     <button class="primary" data-next="2">Continuer</button>
     <footer>Aucune donnée n'est envoyée : tout le calcul se fait dans ton navigateur.</footer>
@@ -135,6 +154,14 @@ function renderSituation(): void {
   app.querySelector<HTMLInputElement>('[data-age]')!.addEventListener('input', (e) => {
     situation.age = Number((e.target as HTMLInputElement).value) || 0;
   });
+  app.querySelector('[data-syntec]')!.querySelectorAll('button').forEach((btn) =>
+    btn.addEventListener('click', () => { situation.syntec = btn.getAttribute('data-val') === 'true'; renderSituation(); }));
+  const statutGrp = app.querySelector('[data-statut]');
+  statutGrp?.querySelectorAll('button').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      situation.statutSyntec = btn.getAttribute('data-val') as 'etam' | 'cadre';
+      statutGrp.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    }));
   wireNav();
 }
 
@@ -158,10 +185,18 @@ function periodCard(p: EmploymentPeriod, i: number): string {
   </div>`;
 }
 
+function estimRupture(salaire: number, mois: number): number {
+  return computeIndemniteRupture(salaire, mois, {
+    syntec: situation.syntec,
+    ...(situation.syntec ? { statut: situation.statutSyntec } : {}),
+  });
+}
+
 function periodForm(): string {
   const p = editDraft!;
   const mois = monthsInclusive(p.dateDebut, p.dateFin);
-  const estimLegale = computeIndemniteLegaleLicenciement(p.salaireBrutMensuel, mois);
+  const estimLabel = situation.syntec ? `Estimation Syntec ${situation.statutSyntec === 'cadre' ? 'Cadre' : 'ETAM'}` : 'Estimation légale';
+  const estimLegale = estimRupture(p.salaireBrutMensuel, mois);
   return `<div class="card period-form">
     <h2>${editing === periods.length ? 'Ajouter une période' : 'Modifier la période'}</h2>
     <div class="grid2">
@@ -173,11 +208,11 @@ function periodForm(): string {
     <label>Motif de fin de contrat</label>
     <select data-p="motifFin">${MOTIFS.map((m) => `<option ${m === p.motifFin ? 'selected' : ''}>${m}</option>`).join('')}</select>
     ${numberField(p.indemniteCongesPayes, 'data-p="indemniteCongesPayes"', 'Indemnité de congés payés (€)', 'Reportée sur ta fin de contrat. 0 si aucune.', { step: 100 })}
-    ${numberField(p.indemniteRupture, 'data-p="indemniteRupture"', 'Indemnité de rupture (€)', `Estimation légale : ${formatEuro(estimLegale)} — modifiable si tu connais le montant réel.`, { step: 100 })}
+    ${numberField(p.indemniteRupture, 'data-p="indemniteRupture"', 'Indemnité de rupture (€)', `${estimLabel} : ${formatEuro(estimLegale)} — modifiable si tu connais le montant réel.`, { step: 100 })}
     <div class="period-actions">
       <button class="primary" data-savep>Valider la période</button>
       <button class="link" data-cancelp>Annuler</button>
-      <button class="link" data-useauto>Utiliser l'estimation légale (${formatEuro(estimLegale)})</button>
+      <button class="link" data-useauto>Utiliser l'estimation (${formatEuro(estimLegale)})</button>
     </div>
   </div>`;
 }
@@ -222,7 +257,7 @@ function renderPeriods(): void {
     app.querySelector('[data-cancelp]')!.addEventListener('click', () => { editing = null; editDraft = null; renderPeriods(); });
     app.querySelector('[data-useauto]')!.addEventListener('click', () => {
       const mois = monthsInclusive(editDraft!.dateDebut, editDraft!.dateFin);
-      editDraft!.indemniteRupture = Math.round(computeIndemniteLegaleLicenciement(editDraft!.salaireBrutMensuel, mois));
+      editDraft!.indemniteRupture = Math.round(estimRupture(editDraft!.salaireBrutMensuel, mois));
       renderPeriods();
     });
   }
@@ -380,7 +415,12 @@ function figures(): Figure[] {
     { label: 'Salaire journalier de référence (SJR)', value: formatEuro2(a.sjr), formula: 'Somme des bruts sur la période de référence / jours calendaires réels (années bissextiles incluses).', source: 'Méthode France Travail.' },
     { label: 'ASP journalière (CSP)', value: formatEuro2(a.aspDaily), formula: `75 % × SJR = 0,75 × ${formatEuro2(a.sjr)}`, source: b.asp.taux.source, note: 'Ancienneté ≥ 1 an. Jamais inférieure à l\'ARE.' },
     { label: 'ARE journalière', value: formatEuro2(a.areDaily), formula: `max(40,4 % × SJR + 13,18 ; 57 % × SJR) = max(${formatEuro2(fa)} ; ${formatEuro2(fb)})`, source: b.are.partieFixe.source, note: 'On garde le plus favorable, plafonné à 75 % du SJR.' },
-    { label: 'Indemnité légale de licenciement', value: formatEuro(input.indemniteLicenciement), formula: '1/4 de mois par an (10 premières années) puis 1/3 au-delà.', source: 'Barème légal.', note: 'Modifiable par période. La part au-delà allonge le différé ARE.' },
+    { label: 'Indemnité de licenciement', value: formatEuro(input.indemniteLicenciement),
+      formula: situation.syntec
+        ? (situation.statutSyntec === 'cadre' ? 'Syntec Cadre : 1/3 de mois par année (sans plafond depuis mai 2023), ou le légal si plus favorable.' : 'Syntec ETAM : 1/4 de mois/an (plafond 10 mois), ou le légal si plus favorable.')
+        : 'Légal : 1/4 de mois par an (10 premières années) puis 1/3 au-delà.',
+      source: situation.syntec ? 'Convention Syntec, art. 19 (+ minimum légal).' : 'Barème légal (Code du travail).',
+      note: 'Ancienneté comptée jusqu\'à la fin du préavis. Identique CSP/ARE ; la part supra-légale allonge le différé ARE.' },
     { label: 'Délai avant le 1er versement de l\'ARE', value: `${Math.round(differeJours)} jours`, formula: '7 j de carence + indemnité CP / SJR (max 30 j) + part supra-légale / 111,8 (max 75 j).', source: b.differe.delaiAttenteJours.source, note: 'Le CSP démarre sans aucun délai.' },
     { label: 'Durée maximale de l\'ASP (CSP)', value: '12 mois (365 j)', formula: 'Durée fixe du CSP.', source: b.asp.plafondJournalier.source, note: 'Après 12 mois, bascule en ARE résiduelle sans nouvelle carence.' },
     { label: 'Durée maximale de l\'ARE', value: `${a.areDurationDays} j (~${Math.round(a.areDurationDays / 30.42)} mois)`, formula: `Selon l'âge (${input.age} ans) : < 55 → 548 j ; 55-56 → 685 j ; ≥ 57 → 822 j.`, source: b.duree.moins55.source },
