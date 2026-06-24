@@ -158,6 +158,31 @@ details.figure[open] > summary::before { content: "▾"; }
 
 footer { margin-top: 28px; font-size: 0.82rem; color: var(--muted); }
 
+/* Barre de progression */
+.steps { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px 0 4px; }
+.stepdot { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 6px; border-radius: 8px; cursor: default; color: var(--muted); font-size: 0.85rem; }
+.stepdot[data-goto] { cursor: pointer; }
+.stepdot .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--line); color: var(--muted); font-weight: 700; font-size: 0.78rem; }
+.stepdot.cur .num { background: var(--accent); color: #fff; }
+.stepdot.cur .lbl { color: var(--ink); font-weight: 600; }
+.stepdot.done .num { background: var(--csp); color: #fff; }
+.stepdot.done .lbl { color: var(--ink); }
+.steparrow { color: var(--line); }
+@media (max-width: 560px) { .stepdot .lbl { display: none; } }
+
+/* Périodes d'emploi */
+.period { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+.period-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.period-actions { display: flex; gap: 16px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+button.link.danger { color: #b22; }
+button.link.add { margin-top: 10px; font-weight: 600; }
+.period-form .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .period-form .grid2 { grid-template-columns: 1fr; } }
+input[type="date"] { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 1rem; }
+
+.navrow { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 18px; }
+.navrow button.primary { margin-top: 0; }
+
 @media print {
   body { background: #fff; }
   #app { max-width: none; }
