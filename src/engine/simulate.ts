@@ -3,13 +3,22 @@ import { computeAspDaily } from './asp';
 import { computeAreDaily } from './are';
 import { computeAreDurationDays } from './duree';
 import { computeAreDeferralDays } from './differe';
-import { computeAreAllocation } from './degressivite';
+import { computeAreAllocation, areReducedDaily } from './degressivite';
+import { computeNetDaily } from './net';
 import { computePreavisKept, type Scenario } from './preavis';
 import type { Baremes, UserInput } from './types';
 
 const DAYS_PER_MONTH = 365 / 12;
 const ASP_MAX_DAYS = 365; // 12 mois
 const MOIS_UN_AN = 12;
+/** Ratio net/brut approximatif d'un salaire (préavis), hors allocations. */
+const RATIO_NET_SALAIRE = 0.78;
+
+/** Options de simulation. */
+export interface SimulateOptions {
+  /** Calculer en net (allocation = brut − retraite ; préavis ≈ ×0,78 ; indemnité exonérée). */
+  net?: boolean;
+}
 
 export type { Scenario };
 
@@ -46,42 +55,50 @@ export function simulateScenario(
   baremes: Baremes,
   scenario: Scenario,
   reemploymentMonths: number,
+  opts: SimulateOptions = {},
 ): ScenarioResult {
+  const net = opts.net === true;
   const sjr = input.sjr ?? computeSjr(input);
   const unemploymentDays = Math.max(0, reemploymentMonths) * DAYS_PER_MONTH;
-  const areDaily = computeAreDaily(sjr, baremes.are);
   const areDurationDays = computeAreDurationDays(input.age, baremes.duree);
+
+  // Tarif journalier de l'allocation, converti en net si demandé (net = brut − retraite).
+  const toAlloc = (brut: number) => (net ? computeNetDaily(brut, sjr, baremes) : brut);
+  const areDailyBrut = computeAreDaily(sjr, baremes.are);
+  const areDaily = toAlloc(areDailyBrut);
+  const areReduit = toAlloc(areReducedDaily(areDailyBrut, baremes.degressivite));
 
   let allocations: number;
   let preavisConserve: number;
 
   if (scenario === 'csp') {
-    // Ancienneté ≥ 1 an : ASP = 75% du SJR, mais ne peut jamais être inférieure à l'ARE
-    // que la personne aurait perçue (règle Unédic « ni à l'ARE »). Ancienneté < 1 an :
-    // l'ASP est directement égale à l'ARE.
-    const aspDaily =
+    // Ancienneté ≥ 1 an : ASP = 75% du SJR, jamais inférieure à l'ARE. < 1 an : ASP = ARE.
+    const aspBrut =
       input.ancienneteMois >= MOIS_UN_AN
-        ? Math.max(computeAspDaily(sjr, baremes.asp), areDaily)
-        : areDaily;
+        ? Math.max(computeAspDaily(sjr, baremes.asp), areDailyBrut)
+        : areDailyBrut;
+    const aspDaily = toAlloc(aspBrut);
     const aspDays = Math.min(unemploymentDays, ASP_MAX_DAYS);
     allocations = aspDaily * aspDays;
 
     // Post-CSP : bascule en ARE résiduelle si toujours au chômage après 12 mois.
-    // (L'ASP n'est jamais dégressive ; l'ARE résiduelle l'est, mais sa courte durée
-    // la garde presque toujours au plein tarif.)
     if (unemploymentDays > ASP_MAX_DAYS) {
       const residualDurationDays = Math.max(0, areDurationDays - ASP_MAX_DAYS);
       const areResidualDays = Math.min(unemploymentDays - ASP_MAX_DAYS, residualDurationDays);
-      allocations += computeAreAllocation(areResidualDays, areDaily, sjr, input.age, baremes.degressivite);
+      allocations += computeAreAllocation(areResidualDays, areDaily, areReduit, sjr, input.age, baremes.degressivite);
     }
     preavisConserve = computePreavisKept(input, 'csp');
   } else {
     const deferralDays = computeAreDeferralDays(input, baremes.differe);
     const payableDays = Math.max(0, Math.min(unemploymentDays - deferralDays, areDurationDays));
     // Dégressivité des hauts salaires : plein tarif 6 mois puis −30 % (plancher).
-    allocations = computeAreAllocation(payableDays, areDaily, sjr, input.age, baremes.degressivite);
+    allocations = computeAreAllocation(payableDays, areDaily, areReduit, sjr, input.age, baremes.degressivite);
     preavisConserve = computePreavisKept(input, 'are');
   }
+
+  // Le préavis est du salaire (≈ ×0,78 en net). L'indemnité de licenciement est exonérée
+  // de cotisations et d'impôt (dans les limites légales) → net ≈ brut.
+  if (net) preavisConserve *= RATIO_NET_SALAIRE;
 
   const total = allocations + preavisConserve + input.indemniteLicenciement;
   return {

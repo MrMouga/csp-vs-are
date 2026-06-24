@@ -4,7 +4,7 @@ import { computeAreDaily } from './are';
 import { computeAreDurationDays } from './duree';
 import { computeNetDaily } from './net';
 import { findBreakEvenMonths } from './breakeven';
-import { simulateScenario, type ScenarioResult } from './simulate';
+import { simulateScenario, type ScenarioResult, type SimulateOptions } from './simulate';
 import type { Baremes, UserInput } from './types';
 
 /** Base de mensualisation pour l'affichage (France Travail affiche daily × 30). */
@@ -65,9 +65,10 @@ export function compareAt(
   input: UserInput,
   baremes: Baremes,
   reemploymentMonths: number,
+  opts: SimulateOptions = {},
 ): ComparisonAt {
-  const csp = simulateScenario(input, baremes, 'csp', reemploymentMonths);
-  const are = simulateScenario(input, baremes, 'are', reemploymentMonths);
+  const csp = simulateScenario(input, baremes, 'csp', reemploymentMonths, opts);
+  const are = simulateScenario(input, baremes, 'are', reemploymentMonths, opts);
   const differentialGross = csp.total - are.total;
 
   let winner: Winner = 'egalite';

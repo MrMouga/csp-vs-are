@@ -14,12 +14,13 @@ export function buildSeries(
   baremes: Baremes,
   maxMonths = 30,
   step = 0.5,
+  net = false,
 ): ChartSeries {
   const months: number[] = [];
   const csp: number[] = [];
   const are: number[] = [];
   for (let m = 0; m <= maxMonths + 1e-9; m += step) {
-    const c = compareAt(input, baremes, m);
+    const c = compareAt(input, baremes, m, { net });
     months.push(m);
     csp.push(c.csp.total);
     are.push(c.are.total);
@@ -30,6 +31,7 @@ export function buildSeries(
 const W = 700;
 const H = 300;
 const PAD = { top: 16, right: 16, bottom: 34, left: 56 };
+
 
 /**
  * Rend la timeline en SVG : courbe CSP (vert), courbe ARE (ambre), trait vertical au

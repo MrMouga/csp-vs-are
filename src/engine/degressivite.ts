@@ -15,17 +15,22 @@ const DAYS_PER_MONTH = 365 / 12;
  */
 export function computeAreAllocation(
   payableDays: number,
-  areDaily: number,
+  dailyFull: number,
+  dailyReduced: number,
   sjr: number,
   age: number,
   deg: DegressiviteBaremes,
 ): number {
   const applies = age < deg.ageExemption.valeur && sjr > deg.seuilSjr.valeur;
-  if (!applies) return areDaily * payableDays;
+  if (!applies) return dailyFull * payableDays;
 
   const seuilJours = deg.moisAvantReduction.valeur * DAYS_PER_MONTH;
   const joursPleins = Math.min(payableDays, seuilJours);
   const joursReduits = Math.max(0, payableDays - seuilJours);
-  const areReduit = Math.max(areDaily * deg.coefficient.valeur, deg.plancher.valeur);
-  return areDaily * joursPleins + areReduit * joursReduits;
+  return dailyFull * joursPleins + dailyReduced * joursReduits;
+}
+
+/** Tarif journalier réduit (−30 %, plancher), avant conversion éventuelle en net. */
+export function areReducedDaily(areDaily: number, deg: DegressiviteBaremes): number {
+  return Math.max(areDaily * deg.coefficient.valeur, deg.plancher.valeur);
 }
