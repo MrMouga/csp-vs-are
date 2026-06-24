@@ -43,7 +43,7 @@ export interface ComparisonAt {
 }
 
 export function analyze(input: UserInput, baremes: Baremes): Analysis {
-  const sjr = computeSjr(input);
+  const sjr = input.sjr ?? computeSjr(input);
   const areDaily = computeAreDaily(sjr, baremes.are);
   const aspDaily =
     input.ancienneteMois >= MOIS_UN_AN

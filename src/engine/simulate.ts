@@ -46,7 +46,7 @@ export function simulateScenario(
   scenario: Scenario,
   reemploymentMonths: number,
 ): ScenarioResult {
-  const sjr = computeSjr(input);
+  const sjr = input.sjr ?? computeSjr(input);
   const unemploymentDays = Math.max(0, reemploymentMonths) * DAYS_PER_MONTH;
   const areDaily = computeAreDaily(sjr, baremes.are);
   const areDurationDays = computeAreDurationDays(input.age, baremes.duree);

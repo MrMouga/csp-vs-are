@@ -88,6 +88,24 @@ export interface Baremes {
   net: NetBaremes;
 }
 
+/** Une période d'emploi salariée (pour le calcul du SJR sur la période de référence). */
+export interface EmploymentPeriod {
+  /** Date de début de contrat (ISO 'YYYY-MM-DD'). */
+  dateDebut: string;
+  /** Date de fin de contrat (ISO 'YYYY-MM-DD'). */
+  dateFin: string;
+  /** Salaire brut mensuel sur cette période (€). */
+  salaireBrutMensuel: number;
+  /** Heures travaillées par semaine (35 = temps plein). */
+  heuresHebdo: number;
+  /** Motif de fin de contrat (libellé). */
+  motifFin: string;
+  /** Indemnité compensatrice de congés payés (€) — alimente le différé CP. */
+  indemniteCongesPayes: number;
+  /** Indemnité de rupture (€) — la part supra-légale alimente le différé spécifique. */
+  indemniteRupture: number;
+}
+
 /**
  * Entrée utilisateur (cas standard v1 : CDI, temps plein, licenciement économique,
  * sans interruption de carrière). Les cas hors périmètre sont écartés en amont par
@@ -108,4 +126,15 @@ export interface UserInput {
   joursCongesPayesNonPris: number;
   /** Durée du préavis (mois). */
   preavisMois: number;
+  /**
+   * SJR précis (€/jour) calculé depuis les périodes d'emploi. Si fourni, le moteur
+   * l'utilise tel quel ; sinon il l'approxime depuis `salaireBrutMensuel` (× 12 / 365).
+   */
+  sjr?: number;
+  /**
+   * Le préavis est-il versé (indemnité compensatrice) ? Si false, aucune somme de
+   * préavis n'entre dans le calcul (ni sacrifiée sous CSP, ni conservée sous ARE).
+   * Défaut : true.
+   */
+  preavisPaye?: boolean;
 }

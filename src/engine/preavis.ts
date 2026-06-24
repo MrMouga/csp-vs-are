@@ -3,6 +3,8 @@ export interface PreavisInput {
   salaireBrutMensuel: number;
   preavisMois: number;
   ancienneteMois: number;
+  /** Le préavis est-il payé (indemnité compensatrice) ? Défaut true. */
+  preavisPaye?: boolean;
 }
 
 export type Scenario = 'csp' | 'are';
@@ -21,6 +23,8 @@ const MOIS_UN_AN = 12;
  * - Sous CSP, ancienneté < 1 an : le salarié garde l'indemnité de préavis (et ASP = ARE).
  */
 export function computePreavisKept(input: PreavisInput, scenario: Scenario): number {
+  // Préavis non payé (pas d'indemnité compensatrice) : aucune somme en jeu.
+  if (input.preavisPaye === false) return 0;
   const moisConserves =
     scenario === 'csp' && input.ancienneteMois >= MOIS_UN_AN
       ? Math.max(0, input.preavisMois - MOIS_PREAVIS_FINANCANT_CSP)
