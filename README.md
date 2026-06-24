@@ -1,5 +1,7 @@
 # CSP ou ARE ? — Comparateur après un licenciement économique
 
+**🔗 En ligne : https://mrmouga.github.io/csp-vs-are/**
+
 Un outil simple et gratuit pour aider quelqu'un en situation de licenciement économique à
 comparer ses deux options dans le délai de 21 jours :
 
