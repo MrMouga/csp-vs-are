@@ -114,8 +114,10 @@ table.figures td.csp, table.figures th.csp { color: var(--csp); text-align: righ
 table.figures td.are, table.figures th.are { color: var(--are); text-align: right; }
 table.breakdown { margin-top: 10px; }
 table.breakdown .total-row td { border-top: 2px solid var(--ink); border-bottom: none; padding-top: 8px; }
-table.breakdown .subrow td { color: var(--muted); border-bottom: none; padding-top: 2px; padding-bottom: 8px; }
+table.breakdown .subrow td { color: var(--muted); border-bottom: none; padding-top: 2px; padding-bottom: 4px; }
 table.breakdown .subrow td:first-child { padding-left: 14px; }
+table.breakdown .subrow.phase-note td { padding-top: 0; padding-bottom: 8px; }
+.evo { color: var(--muted); padding: 0 2px; }
 
 .toggle { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; flex-wrap: wrap; }
 .toggle button { padding: 6px 16px; border: 1px solid var(--line); background: #fff; border-radius: 999px; cursor: pointer; font-size: 0.9rem; }

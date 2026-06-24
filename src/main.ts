@@ -393,10 +393,18 @@ function renderIneligible(exclusions: string[]): void {
 
 function verdictHtml(months: number): string {
   const net = isNet();
+  const b = baremes2026;
   const c = compareAt(resolved(), baremes2026, months, { net });
   const a = analyze(resolved(), baremes2026);
-  const aspMensuel = (net ? a.aspNetMonthly : a.aspDaily * 30);
-  const areMensuel = (net ? a.areNetMonthly : a.areDaily * 30);
+  const mensuel = (daily: number) => (net ? computeNetDaily(daily, a.sjr, b) : daily) * 30;
+  const aspMensuel = mensuel(a.aspDaily);
+  const areMensuel = mensuel(a.areDaily);
+  const degApplies = resolved().age < b.degressivite.ageExemption.valeur && a.sjr > b.degressivite.seuilSjr.valeur;
+  const areReduitMensuel = mensuel(Math.max(a.areDaily * b.degressivite.coefficient.valeur, b.degressivite.plancher.valeur));
+  const arrow = ` <span class="evo">→</span> `;
+  // CSP : ASP (12 mois) puis ARE résiduelle. ARE : plein 6 mois puis −30 % si haut salaire.
+  const cspMensuelCell = `${formatEuro(aspMensuel)}${arrow}${formatEuro(areMensuel)}`;
+  const areMensuelCell = degApplies ? `${formatEuro(areMensuel)}${arrow}${formatEuro(areReduitMensuel)}` : formatEuro(areMensuel);
   const ecart = Math.abs(c.differentialGross);
   const monthsLabel = `${months.toFixed(1).replace('.0', '')} mois`;
   let hero: string;
@@ -416,8 +424,10 @@ function verdictHtml(months: number): string {
     <table class="figures breakdown">
       <thead><tr><th>D'où vient le total (${net ? 'net' : 'brut'})</th><th class="csp">CSP</th><th class="are">ARE</th></tr></thead>
       <tbody>
-        ${row('Allocations chômage', c.csp.allocations, c.are.allocations, '(ASP 75% vs ARE 57%)')}
-        ${row('↳ Montant mensuel', aspMensuel, areMensuel, '(ASP vs ARE, × 30 j)', 'subrow')}
+        ${row('Allocations chômage', c.csp.allocations, c.are.allocations, '(cumul sur la période)')}
+        <tr class="subrow"><td>↳ Montant mensuel<span class="src"> (évolue dans le temps)</span></td>
+          <td class="csp">${cspMensuelCell}</td><td class="are">${areMensuelCell}</td></tr>
+        <tr class="subrow phase-note"><td colspan="3"><span class="src">CSP : ASP (mois 1-12) puis ARE résiduelle. ARE : plein 6 mois${degApplies ? ' puis −30 % (dégressivité haut salaire)' : ', constant'}.</span></td></tr>
         ${row('Préavis conservé', c.csp.preavisConserve, c.are.preavisConserve, '(le CSP en sacrifie jusqu\'à 3 mois)')}
         ${row('Indemnité de licenciement', c.csp.indemniteLicenciement, c.are.indemniteLicenciement, '(identique, exonérée)')}
         <tr class="total-row"><td><strong>Total</strong></td>
