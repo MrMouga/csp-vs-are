@@ -35,6 +35,16 @@ const draft: Draft = {
 
 let step: 'wizard' | 'ineligible' | 'result' = 'wizard';
 let currentMonths = 6;
+let wizardError = '';
+
+/** Validation des entrées (oublis de saisie), distincte de l'éligibilité (périmètre). */
+function validationErrors(): string[] {
+  const e: string[] = [];
+  if (!(draft.salaireBrutMensuel > 0)) e.push('Indique un salaire brut mensuel supérieur à 0.');
+  if (!(draft.age >= 16 && draft.age <= 100)) e.push('Indique un âge réaliste (entre 16 et 100 ans).');
+  if (draft.ancienneteMois < 0 || draft.preavisMois < 0) e.push('L\'ancienneté et le préavis ne peuvent pas être négatifs.');
+  return e;
+}
 
 const app = document.getElementById('app')!;
 const disclaimer = `<div class="disclaimer"><strong>Estimation, pas une décision officielle.</strong>
@@ -61,6 +71,7 @@ function renderWizard(): void {
       le <strong>CSP</strong> (allocation plus élevée, 12 mois) et l'<strong>ARE</strong> (plus faible,
       plus longue, mais tu gardes ton préavis). On le compare avec tes chiffres.</p>
     ${disclaimer}
+    ${wizardError ? `<div class="exclusion" role="alert">${escapeHtml(wizardError)}</div>` : ''}
     <div class="card">
       <h2>Ta situation</h2>
       <label>Es-tu en CDI ?</label>${flagButtons('estCDI', 'Oui', 'Non')}
@@ -101,6 +112,14 @@ function renderWizard(): void {
 }
 
 function submit(): void {
+  const errors = validationErrors();
+  if (errors.length > 0) {
+    wizardError = errors.join(' ');
+    renderWizard();
+    window.scrollTo(0, 0);
+    return;
+  }
+  wizardError = '';
   const elig = checkEligibility(draft);
   step = elig.eligible ? 'result' : 'ineligible';
   if (step === 'ineligible') renderIneligible(elig.exclusions);
@@ -141,21 +160,30 @@ function verdictHtml(months: number): string {
   const input = userInput();
   const c = compareAt(input, baremes2026, months);
   const ecart = Math.abs(c.differentialGross);
-  let phrase: string;
+  const monthsLabel = `${months.toFixed(1).replace('.0', '')} mois`;
+
+  let hero: string;
   if (c.winner === 'egalite') {
-    phrase = `Si tu retrouves un emploi vers <strong>${months.toFixed(1)} mois</strong>, les deux options
-      sont quasiment équivalentes (écart de quelques euros).`;
+    hero = `<div class="hero egalite">
+      <div class="hero-badge">À égalité</div>
+      <div class="hero-sub">Si tu retrouves un emploi vers <strong>${monthsLabel}</strong>, les deux
+        options se valent (écart de quelques euros).</div>
+    </div>`;
   } else {
-    const gagnant = c.winner === 'csp' ? '<span class="csp">le CSP</span>' : '<span class="are">l\'ARE</span>';
-    phrase = `Si tu retrouves un emploi vers <strong>${months.toFixed(1)} mois</strong>, ${gagnant}
-      te rapporterait environ <strong>${formatEuro(ecart)} de plus</strong> au total.`;
+    const name = c.winner === 'csp' ? 'Le CSP' : 'L\'ARE';
+    hero = `<div class="hero ${c.winner}">
+      <div class="hero-badge">${name} l'emporte</div>
+      <div class="hero-amount">+${formatEuro(ecart)}</div>
+      <div class="hero-sub">au total, si tu retrouves un emploi vers <strong>${monthsLabel}</strong>.</div>
+    </div>`;
   }
+
   const row = (label: string, csp: number, are: number, hint = '') =>
     `<tr><td>${label}${hint ? `<span class="src"> ${hint}</span>` : ''}</td>
       <td class="csp"><strong>${formatEuro(csp)}</strong></td>
       <td class="are"><strong>${formatEuro(are)}</strong></td></tr>`;
 
-  return `<div class="verdict">${phrase}</div>
+  return `${hero}
     <table class="figures breakdown">
       <thead><tr><th>D'où vient le total</th><th class="csp">CSP</th><th class="are">ARE</th></tr></thead>
       <tbody>

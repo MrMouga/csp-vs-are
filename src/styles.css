@@ -37,8 +37,9 @@ p { margin: 0 0 12px; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 22px;
   margin: 16px 0;
+  box-shadow: 0 1px 2px rgba(20, 29, 41, 0.04), 0 4px 16px rgba(20, 29, 41, 0.03);
 }
 
 .disclaimer {
@@ -85,9 +86,18 @@ button.primary {
 }
 button.link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 0.95rem; }
 
-.verdict { font-size: 1.35rem; font-weight: 700; margin: 4px 0 8px; }
-.verdict .csp { color: var(--csp); }
-.verdict .are { color: var(--are); }
+.hero { text-align: center; padding: 8px 0 14px; border-radius: var(--radius); }
+.hero-badge {
+  display: inline-block; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 4px 12px; border-radius: 999px; margin-bottom: 8px;
+}
+.hero.csp .hero-badge { background: #e3f3ec; color: var(--csp); }
+.hero.are .hero-badge { background: #fbeede; color: var(--are); }
+.hero.egalite .hero-badge { background: #eceff3; color: var(--muted); }
+.hero-amount { font-size: 2.6rem; font-weight: 800; line-height: 1.05; }
+.hero.csp .hero-amount { color: var(--csp); }
+.hero.are .hero-amount { color: var(--are); }
+.hero-sub { color: var(--muted); margin-top: 4px; max-width: 460px; margin-inline: auto; }
 
 .slider-row { margin: 18px 0 6px; }
 input[type="range"] { width: 100%; }
@@ -125,10 +135,25 @@ details.figure[open] > summary::before { content: "▾"; }
 .csp { color: var(--csp); }
 .are { color: var(--are); }
 
+@media (max-width: 560px) {
+  #app { padding: 16px 12px 56px; }
+  h1 { font-size: 1.3rem; }
+  .card { padding: 16px; }
+  .hero-amount { font-size: 2.1rem; }
+  .choice button { flex-basis: 100%; }
+  table.figures { font-size: 0.85rem; }
+  table.figures th, table.figures td { padding: 6px 2px; }
+  .fig-val { font-size: 0.85rem; }
+  button.primary { width: 100%; }
+  button.link { display: block; margin: 14px 0 0 !important; }
+}
+
 @media print {
   /* Force l'ouverture de tous les volets dépliables pour le PDF. */
   details.figure > *:not(summary) { display: block !important; }
   details.figure > summary::before { content: ""; }
+  .card { box-shadow: none; }
+  .hero-amount { font-size: 2rem; }
 }
 
 footer { margin-top: 28px; font-size: 0.82rem; color: var(--muted); }
